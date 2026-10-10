@@ -12,19 +12,6 @@ An interactive portfolio dashboard for exploring credit-risk indicators across a
 - Rebuild the dashboard HTML from the source template and local data.
 - Browse the [GitHub Pages demo](https://smitapinjan.github.io/credit-risk-analysis-dashboard_AI/) after enabling Pages and completing its first deployment. It uses generated synthetic rows, and its Analyzer runs in the browser.
 
-## Quick start
-
-Requirements: Python 3.10 or newer and the local CSV inputs described in [`data/README.md`](data/README.md).
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python src/dashboard.py
-python src/app.py
-```
-
-Open <http://127.0.0.1:5000/>. Keep the Flask process running while using the Analyzer. Opening the generated HTML directly with `file://` will not connect to its API. If using a shell other than PowerShell, activate the virtual environment using that shell's command.
 
 The public repository intentionally excludes source CSVs and `dashboard.html`: the latter embeds loan-level rows. After obtaining the required files locally, `python src/dashboard.py` builds the page. The generator reports a useful missing-file error if required files have not been placed in `data/`.
 
