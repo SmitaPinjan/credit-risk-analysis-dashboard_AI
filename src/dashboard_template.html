@@ -1,0 +1,607 @@
+<html>
+<head>
+    <title>Credit Risk Dashboard</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <!-- DataTables Buttons -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+
+    <!-- JSZip + PDFMake -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table th, table td {
+            text-align: left !important;
+            padding: 8px 12px !important;
+            vertical-align: middle !important;
+            white-space: nowrap;
+        }
+        table th {
+            background-color: #f2f2f2 !important;
+            font-weight: 600 !important;
+            border-bottom: 2px solid #ddd !important;
+        }
+        table tr {
+            border-bottom: 1px solid #e3e3e3 !important;
+        }
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        table tr:hover {
+            background-color: #e8f4ff !important;
+        }
+        table.dataTable thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container mt-4">
+
+    <h1 class="mb-4">Credit Risk Dashboard</h1>
+    {demo_notice}
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <label class="form-label">Sector filter</label>
+            {sector_options}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Vintage filter</label>
+            {vintage_options}
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Search loan_id</label>
+            <input id="loanSearch" class="form-control" placeholder="e.g. L000123">
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+            <button id="exportBtn" class="btn btn-outline-primary w-100">Export top expected-loss exposures as CSV</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#overview">Overview</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pd">PD</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#rwa">RWA</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#stage">Ratings</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ews">Review / Drill-down</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#insights">Insights</a></li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- Overview -->
+        <div class="tab-pane fade show active" id="overview">
+            <div class="card p-3">
+                <h3>Portfolio Overview</h3>
+                <p class="text-muted small">The values below describe the filtered portfolio. Observed defaults are historical; annual PD is a source model estimate. Exposure, expected loss, and RWA use the dataset's units, which are not identified in the source.</p>
+                <div id="portfolio_overview">{portfolio_overview}</div>
+            </div>
+
+            <div class="card p-3">
+                <h3>Real-Time Analysis Narrative</h3>
+                <p id="narrativeBox" style="white-space: pre-line;">{initial_narrative}</p>
+            </div>
+            <div class="card p-3 mt-3">
+                <h3>Credit Risk Analyst</h3>
+                <p class="text-muted">
+                Ask about the filtered portfolio's defaults, PD, RWA, EAD, or sector and vintage comparisons. Uses local rules; no API key or paid AI service.
+                </p>
+
+                <textarea id="aiQuestion" class="form-control" rows="3"
+                          placeholder="e.g., Why is PD increasing in Manufacturing"></textarea>
+
+                <button id="aiAnalyzeBtn" class="btn btn-primary mt-2">Analyze Portfolio</button>
+
+                <div id="aiAnswerBox" class="mt-3" style="white-space: pre-wrap;"></div>
+            </div>
+
+            <div class="card p-3">
+                <h4>Default Rate by Sector</h4>
+                <p class="text-muted small">Meaning: the share of loans marked defaulted in each sector. Why it matters: highlights where realized defaults are concentrated; compare loan counts and do not infer the cause from the rate alone.</p>
+                <div id="sector_chart"></div>
+            </div>
+
+            <div class="card p-3">
+                <h4>Vintage Default Rate</h4>
+                <p class="text-muted small">Meaning: the observed default share for loans grouped by origination year. Why it matters: helps compare cohorts, but newer vintages may have had less time to default.</p>
+                <div id="vintage_chart"></div>
+            </div>
+        </div>
+
+        <!-- PD -->
+        <div class="tab-pane fade" id="pd">
+            <div class="card p-3">
+                <h3>PD Distribution</h3>
+                <p class="text-muted small">Meaning: distribution of the source annual probability-of-default estimates across filtered loans. Why it matters: shows the portfolio's modeled risk mix and high-PD tail. It is an estimate, not a count of actual defaults.</p>
+                <div id="pd_chart"></div>
+            </div>
+
+            <div class="card p-3">
+                <h4>Highest Annual PD Review List</h4>
+                <p class="text-muted small">Meaning: up to 20 filtered loans with the highest source annual PD. Why it matters: provides a review queue for checking risk assumptions and exposure; it is not a lending decision or a forecast of certain default.</p>
+                {pd_spikes_table}
+            </div>
+        </div>
+
+        <!-- RWA -->
+        <div class="tab-pane fade" id="rwa">
+            <div class="card p-3">
+                <h3>RWA vs Unexpected Loss</h3>
+                <p class="text-muted small">Meaning: each point is a loan's source RWA and source unexpected-loss value. Why it matters: helps inspect how the two supplied risk measures vary together. The dataset does not specify their currency or calculation method, and association does not prove causation.</p>
+                <div id="rwa_chart"></div>
+            </div>
+
+            <div class="card p-3">
+                <h4>Highest RWA-to-EAD Ratios Review List</h4>
+                <p class="text-muted small">Meaning: ranks source RWA divided by exposure at default (EAD). Why it matters: puts RWA in exposure-relative context; a high ratio is a screening cue, not an OSFI risk weight validation.</p>
+                {rwa_jump_table}
+            </div>
+        </div>
+
+        <!-- Stage -->
+        <div class="tab-pane fade" id="stage">
+            <div class="card p-3">
+                <h3>Initial Credit Rating Distribution</h3>
+                <p class="text-muted small">Meaning: counts the source initial-rating categories. Why it matters: shows the rating mix used to describe portfolio composition. These categories are not IFRS 9 stages and do not show rating migration.</p>
+                <div id="stage_chart"></div>
+            </div>
+        </div>
+
+        <!-- EWS -->
+        <div class="tab-pane fade" id="ews">
+            <div class="card p-3">
+                <h3>Largest Expected Loss Exposures</h3>
+                <p class="text-muted small">Meaning: ranks loans by the dataset's expected-loss (EL) field, which closely follows PD × LGD × EAD. Why it matters: identifies where modeled expected loss is concentrated for portfolio review; it is not a decision about an individual borrower.</p>
+                <div id="riskyLoansContainer">
+                    {risky_loans_table}
+                </div>
+            </div>
+
+            <div class="card p-3">
+                <h4>Selected Loan Details</h4>
+                <p class="text-muted small">PD is probability of default, LGD is loss severity if default occurs, EAD is exposure at default, EL is expected loss, and RWA is the source risk-weighted-asset value. These are dataset fields; the dashboard does not validate individual credit decisions.</p>
+                <div id="loan-details"><pre>Select a row or search a loan_id.</pre></div>
+            </div>
+        </div>
+
+        <!-- Insights -->
+        <div class="tab-pane fade" id="insights">
+            <div class="card p-3">
+                <h3>Expected Loss Concentration by Sector</h3>
+                <p class="text-muted small">Meaning: sum of source expected loss by sector. Why it matters: shows which sectors contribute the largest modeled loss amounts; compare with exposure sizes and default rates.</p>
+                <div id="risk_score_chart"></div>
+            </div>
+
+            <div class="card p-3">
+                <h3>Average Annual PD and Observed Defaults by Vintage</h3>
+                <p class="text-muted small">Meaning: compares average source annual PD with the historical default share for each origination year. Why it matters: can guide model-performance review, but valid calibration requires a defined and comparable observation horizon.</p>
+                <div id="trend_chart"></div>
+            </div>
+
+            <div class="card p-3">
+                <h3>Stress Testing Summary</h3>
+                <p class="text-muted small">Meaning: applies the supplied scenario file's sector-level PD multipliers and LGD assumptions to the filtered loans. Why it matters: illustrates sensitivity of expected loss to those assumptions; this is not an OSFI-prescribed stress test or regulatory capital result.</p>
+                <div id= "stress_html">{stress_html}</div>
+            </div>
+
+           <div class="card p-3">
+                <h3>Recommendations</h3>
+                <p class="text-muted small">These review priorities are derived from the current descriptive metrics. Treat them as prompts for investigation, not causal conclusions or borrower-level decisions.</p>
+                <div id="recs_html">{recs_html}</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+window.fullData = {full_data_json};
+window.stressScenarios = {stress_scenarios_json};
+window.staticDemo = {static_demo};
+</script>
+<script>
+(() => {
+    const byId = id => document.getElementById(id);
+    const number = (row, key) => {
+        const value = Number(row[key]);
+        return Number.isFinite(value) ? value : null;
+    };
+    const rate = value => value == null ? "n/a" : `${(value * 100).toFixed(2)}%`;
+    const amount = value => value == null ? "n/a" : new Intl.NumberFormat("en", { maximumFractionDigits: 0 }).format(value);
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[char]);
+    const chartLayout = title => ({
+        title: { text: title, x: 0.03, xanchor: "left" },
+        margin: { t: 52, r: 24, b: 68, l: 72 },
+        paper_bgcolor: "#fff", plot_bgcolor: "#fff",
+        font: { family: "Arial, sans-serif", color: "#343a40" },
+        xaxis: { automargin: true, gridcolor: "#edf0f2" },
+        yaxis: { automargin: true, gridcolor: "#edf0f2" },
+        legend: { orientation: "h", y: -0.25 }
+    });
+    const chartConfig = { responsive: true, displaylogo: false };
+
+    function groupRows(rows, key) {
+        const groups = new Map();
+        rows.forEach(row => {
+            const value = row[key] == null ? "Unknown" : String(row[key]);
+            if (!groups.has(value)) groups.set(value, []);
+            groups.get(value).push(row);
+        });
+        return Array.from(groups, ([value, members]) => {
+            const defaults = members.map(row => number(row, "defaulted")).filter(value => value != null);
+            const pds = members.map(row => number(row, "pd_annual")).filter(value => value != null);
+            const el = members.map(row => number(row, "el")).filter(value => value != null);
+            return {
+                value,
+                loan_count: members.length,
+                observed_default_rate: defaults.length ? defaults.reduce((a, b) => a + b, 0) / defaults.length : null,
+                average_annual_pd: pds.length ? pds.reduce((a, b) => a + b, 0) / pds.length : null,
+                total_el: el.reduce((a, b) => a + b, 0)
+            };
+        });
+    }
+
+    function currentRows() {
+        const sector = byId("sectorFilter").value;
+        const vintage = byId("vintageFilter").value;
+        const query = byId("loanSearch").value.trim().toLowerCase();
+        return window.fullData.filter(row =>
+            (!sector || row.sector === sector) &&
+            (!vintage || String(row.origination_year) === vintage) &&
+            (!query || String(row.loan_id).toLowerCase().includes(query))
+        );
+    }
+
+    function summarize(rows) {
+        const mean = key => {
+            const values = rows.map(row => number(row, key)).filter(value => value != null);
+            return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+        };
+        const sum = key => rows.reduce((total, row) => total + (number(row, key) || 0), 0);
+        const defaults = rows.map(row => number(row, "defaulted")).filter(value => value != null);
+        return {
+            loan_count: rows.length,
+            observed_default_rate: defaults.length ? defaults.reduce((a, b) => a + b, 0) / defaults.length : null,
+            default_count: defaults.reduce((a, b) => a + b, 0),
+            average_annual_pd: mean("pd_annual"),
+            average_lgd: mean("lgd"),
+            average_rwa: mean("rwa"),
+            total_rwa: sum("rwa"),
+            total_ead: sum("ead"),
+            total_el: sum("el"),
+            total_unexpected_loss: sum("unexpected_loss"),
+            by_sector: groupRows(rows, "sector").map(group => ({ sector: group.value, ...group })),
+            by_vintage: groupRows(rows, "origination_year").map(group => ({ origination_year: group.value, ...group }))
+        };
+    }
+
+    function updateOverview(rows, metrics) {
+        const expectedLossRate = metrics.total_ead ? metrics.total_el / metrics.total_ead : null;
+        byId("portfolio_overview").innerHTML = `
+            <div class="mb-2"><b>Loans in scope:</b> ${amount(metrics.loan_count)}<div class="text-muted small">Meaning: records matching the active filters. Why it matters: sets the sample size behind every rate and chart.</div></div>
+            <div class="mb-2"><b>Observed defaults:</b> ${amount(metrics.default_count)} (${rate(metrics.observed_default_rate)})<div class="text-muted small">Meaning: rows labeled as defaulted and their share of the filtered loans. Why it matters: summarizes realized history, subject to the dataset's observation period.</div></div>
+            <div class="mb-2"><b>Average annual PD:</b> ${rate(metrics.average_annual_pd)}<div class="text-muted small">Meaning: average source annual probability-of-default estimate. Why it matters: summarizes modeled one-year risk; it is not the same as the observed default rate.</div></div>
+            <div class="mb-2"><b>Average LGD:</b> ${rate(metrics.average_lgd)}<div class="text-muted small">Meaning: average source loss-given-default estimate. Why it matters: approximates loss severity conditional on default and informs expected-loss estimates.</div></div>
+            <div class="mb-2"><b>Total EAD:</b> ${amount(metrics.total_ead)} (dataset units)<div class="text-muted small">Meaning: sum of source exposure-at-default values. Why it matters: shows the exposure base that could be outstanding when defaults occur.</div></div>
+            <div class="mb-2"><b>Total expected loss (source field):</b> ${amount(metrics.total_el)} (dataset units); EL / EAD: ${rate(expectedLossRate)}<div class="text-muted small">Meaning: sum of the source EL values and its share of EAD. Why it matters: summarizes modeled average loss burden; the source EL closely follows PD × LGD × EAD.</div></div>
+            <div class="mb-2"><b>Total RWA (source field):</b> ${amount(metrics.total_rwa)} (dataset units)<div class="text-muted small">Meaning: sum of supplied risk-weighted assets. Why it matters: RWA is used in regulatory capital ratios, but this source field is not a complete OSFI RWA calculation.</div></div>
+            <p class="text-muted small mb-0">Dataset currency and source RWA methodology are not specified.</p>`;
+    }
+
+    function updateNarrative(rows, metrics) {
+        const sectors = groupRows(rows, "sector").filter(group => group.loan_count >= 30 && group.observed_default_rate != null);
+        const vintages = groupRows(rows, "origination_year").filter(group => group.loan_count >= 30 && group.observed_default_rate != null);
+        const highestSector = sectors.length ? sectors.reduce((a, b) => a.observed_default_rate >= b.observed_default_rate ? a : b) : null;
+        const lowestSector = sectors.length ? sectors.reduce((a, b) => a.observed_default_rate <= b.observed_default_rate ? a : b) : null;
+        const highestVintage = vintages.length ? vintages.reduce((a, b) => a.observed_default_rate >= b.observed_default_rate ? a : b) : null;
+        const lines = [
+            `The current filters contain ${amount(metrics.loan_count)} loans, including ${amount(metrics.default_count)} observed defaults (${rate(metrics.observed_default_rate)}).`,
+            `Average annual PD is ${rate(metrics.average_annual_pd)}; it is not the same measure as the historical default share.`,
+            highestSector ? `Among sectors with at least 30 loans, ${highestSector.value} has the highest observed default rate (${rate(highestSector.observed_default_rate)}; ${amount(highestSector.loan_count)} loans).` : "There are too few filtered observations for a stable sector comparison.",
+            lowestSector ? `${lowestSector.value} has the lowest observed sector default rate (${rate(lowestSector.observed_default_rate)}; ${amount(lowestSector.loan_count)} loans).` : "",
+            highestVintage ? `Vintage ${highestVintage.value} has the highest observed default rate among vintages with at least 30 loans (${rate(highestVintage.observed_default_rate)}).` : "",
+            "These are descriptive portfolio differences; they do not establish cause, predict an individual loan outcome, or constitute OSFI regulatory reporting."
+        ].filter(Boolean);
+        byId("narrativeBox").textContent = lines.map((line, index) => `${index + 1}. ${line}`).join("\n");
+    }
+
+    function plot(id, traces, layout) {
+        if (window.Plotly) Plotly.react(id, traces, layout, chartConfig);
+    }
+
+    function updateCharts(rows) {
+        const sectors = groupRows(rows, "sector").sort((a, b) => b.observed_default_rate - a.observed_default_rate);
+        const vintages = groupRows(rows, "origination_year").sort((a, b) => Number(a.value) - Number(b.value));
+        const sectorRows = groupRows(rows, "sector");
+        const sectorEl = new Map(sectorRows.map(group => [group.value, group.total_el]));
+        const ratings = groupRows(rows, "initial_rating").sort((a, b) => a.value.localeCompare(b.value));
+
+        plot("sector_chart", [{
+            type: "bar", x: sectors.map(group => group.value),
+            y: sectors.map(group => group.observed_default_rate),
+            customdata: sectors.map(group => group.loan_count),
+            marker: { color: "#4472C4" },
+            hovertemplate: "%{x}<br>Observed default rate: %{y:.2%}<br>Loans: %{customdata:,}<extra></extra>"
+        }], { ...chartLayout("Observed Default Rate by Sector"), yaxis: { title: "Observed default rate", tickformat: ".0%", rangemode: "tozero", gridcolor: "#edf0f2" } });
+
+        plot("vintage_chart", [{
+            type: "scatter", mode: "lines+markers", name: "Observed defaults",
+            x: vintages.map(group => group.value), y: vintages.map(group => group.observed_default_rate),
+            customdata: vintages.map(group => group.loan_count),
+            hovertemplate: "Vintage %{x}<br>Observed defaults: %{y:.2%}<br>Loans: %{customdata:,}<extra></extra>"
+        }], { ...chartLayout("Observed Default Rate by Origination Vintage"), yaxis: { title: "Observed default rate", tickformat: ".0%", rangemode: "tozero", gridcolor: "#edf0f2" } });
+
+        plot("pd_chart", [{
+            type: "histogram", x: rows.map(row => number(row, "pd_annual")).filter(value => value != null),
+            nbinsx: 40, marker: { color: "#70AD47" },
+            hovertemplate: "Annual PD: %{x:.2%}<br>Loans: %{y}<extra></extra>"
+        }], { ...chartLayout("Annual Probability of Default Distribution"), xaxis: { title: "Annual PD", tickformat: ".0%", gridcolor: "#edf0f2" }, yaxis: { title: "Loan count", gridcolor: "#edf0f2" } });
+
+        plot("rwa_chart", [{
+            type: "scattergl", mode: "markers", name: "Loans",
+            x: rows.map(row => number(row, "rwa")), y: rows.map(row => number(row, "unexpected_loss")),
+            customdata: rows.map(row => [row.loan_id, row.sector, row.origination_year]),
+            marker: { color: "#ED7D31", opacity: 0.45, size: 6 },
+            hovertemplate: "Loan %{customdata[0]}<br>Sector: %{customdata[1]}<br>Vintage: %{customdata[2]}<br>Source RWA: %{x:,.0f}<br>Unexpected loss: %{y:,.0f}<extra></extra>"
+        }], { ...chartLayout("Source RWA vs Source Unexpected Loss"), xaxis: { title: "Source RWA (dataset units)", gridcolor: "#edf0f2" }, yaxis: { title: "Source unexpected loss (dataset units)", gridcolor: "#edf0f2" } });
+
+        plot("stage_chart", [{
+            type: "bar", x: ratings.map(group => group.value), y: ratings.map(group => group.loan_count),
+            marker: { color: "#5B9BD5" }, hovertemplate: "Initial rating %{x}<br>Loans: %{y:,}<extra></extra>"
+        }], { ...chartLayout("Initial Credit Rating Distribution (Source Field)"), xaxis: { title: "Initial rating" }, yaxis: { title: "Loan count", gridcolor: "#edf0f2" } });
+
+        const sectorLabels = Array.from(sectorEl.keys()).sort((a, b) => (sectorEl.get(b) || 0) - (sectorEl.get(a) || 0));
+        plot("risk_score_chart", [{
+            type: "bar", x: sectorLabels, y: sectorLabels.map(sector => sectorEl.get(sector) || 0),
+            marker: { color: "#A5A5A5" }, hovertemplate: "%{x}<br>Source expected loss: %{y:,.0f}<extra></extra>"
+        }], { ...chartLayout("Source Expected Loss by Sector"), xaxis: { title: "Sector" }, yaxis: { title: "Expected loss (dataset units)", gridcolor: "#edf0f2" } });
+
+        plot("trend_chart", [
+            { type: "scatter", mode: "lines+markers", name: "Average annual PD", x: vintages.map(group => group.value), y: vintages.map(group => group.average_annual_pd), hovertemplate: "Vintage %{x}<br>Average annual PD: %{y:.2%}<extra></extra>" },
+            { type: "scatter", mode: "lines+markers", name: "Observed default rate", x: vintages.map(group => group.value), y: vintages.map(group => group.observed_default_rate), hovertemplate: "Vintage %{x}<br>Observed default rate: %{y:.2%}<extra></extra>" }
+        ], { ...chartLayout("Average Annual PD and Observed Defaults by Vintage"), yaxis: { title: "Rate", tickformat: ".0%", rangemode: "tozero", gridcolor: "#edf0f2" } });
+    }
+
+    function displayValue(key, value) {
+        if (value == null) return "n/a";
+        if (["pd_annual", "lgd"].includes(key)) return rate(Number(value));
+        if (key === "rwa_to_ead") return rate(Number(value));
+        if (["ead", "el", "rwa"].includes(key)) return amount(Number(value));
+        return escapeHtml(value);
+    }
+
+    function updateTable(tableId, rows, columns) {
+        const table = byId(tableId);
+        if (!table) return;
+        if (window.jQuery && jQuery.fn.DataTable && jQuery.fn.DataTable.isDataTable(table)) {
+            jQuery(table).DataTable().destroy();
+        }
+        const labels = { loan_id: "Loan ID", sector: "Sector", origination_year: "Vintage", initial_rating: "Initial rating", pd_annual: "Annual PD", lgd: "LGD", ead: "EAD (dataset units)", el: "Expected loss (dataset units)", rwa: "Source RWA (dataset units)", rwa_to_ead: "RWA / EAD" };
+        table.querySelectorAll("thead th").forEach((header, index) => { header.textContent = labels[columns[index]] || columns[index]; });
+        const body = table.querySelector("tbody");
+        body.innerHTML = rows.map(row => `<tr data-loan-id="${escapeHtml(row.loan_id)}">${columns.map(key => `<td>${displayValue(key, row[key])}</td>`).join("")}</tr>`).join("");
+        if (window.jQuery && jQuery.fn.DataTable) {
+            jQuery(table).DataTable({ paging: true, searching: true, ordering: true, pageLength: 10, responsive: true, dom: "Bfrtip", buttons: ["copy", "csv", "excel", "pdf", "print", "colvis"] });
+        }
+    }
+
+    function updateTables(rows) {
+        const highestPd = [...rows].sort((a, b) => (number(b, "pd_annual") || 0) - (number(a, "pd_annual") || 0)).slice(0, 20);
+        const highestRwaDensity = [...rows].map(row => ({ ...row, rwa_to_ead: number(row, "ead") > 0 ? number(row, "rwa") / number(row, "ead") : null })).sort((a, b) => (b.rwa_to_ead || 0) - (a.rwa_to_ead || 0)).slice(0, 20);
+        const highestEl = [...rows].sort((a, b) => (number(b, "el") || 0) - (number(a, "el") || 0)).slice(0, 20);
+        updateTable("pdSpikesTable", highestPd, ["loan_id", "sector", "origination_year", "initial_rating", "pd_annual"]);
+        updateTable("rwaJumpTable", highestRwaDensity, ["loan_id", "sector", "origination_year", "ead", "rwa", "rwa_to_ead"]);
+        updateTable("riskyLoansTable", highestEl, ["loan_id", "sector", "origination_year", "pd_annual", "lgd", "ead", "el"]);
+    }
+
+    function updateStress(rows) {
+        const scenarioNames = ["baseline", "mild", "adverse", "severe", "gfc_like", "covid_like"];
+        const scenarioMap = new Map();
+        window.stressScenarios.forEach(item => scenarioMap.set(`${item.scenario}|${item.sector}`, item));
+        const totals = new Map();
+        scenarioNames.forEach(name => {
+            let total = 0;
+            let covered = 0;
+            rows.forEach(row => {
+                const scenario = scenarioMap.get(`${name}|${row.sector}`);
+                if (!scenario) return;
+                const pd = number(row, "pd_annual");
+                const lgd = number(row, "lgd");
+                const ead = number(row, "ead");
+                if (pd == null || lgd == null || ead == null) return;
+                const pdStress = Math.min(1, pd * Number(scenario.pd_multiplier));
+                const baseLgd = Number(scenario.base_lgd);
+                const stressedLgd = baseLgd > 0 ? Math.min(1, lgd * Number(scenario.stressed_lgd) / baseLgd) : lgd;
+                total += ead * pdStress * stressedLgd;
+                covered++;
+            });
+            if (name === "baseline") {
+                total = rows.reduce((sum, row) => sum + (number(row, "el") || 0), 0);
+            }
+            totals.set(name, { total, covered });
+        });
+        const baseline = totals.get("baseline")?.total || 0;
+        const detailRows = scenarioNames.map(name => {
+            const result = totals.get(name) || { total: 0, covered: 0 };
+            const assumptions = window.stressScenarios.find(item => item.scenario === name);
+            const change = baseline ? ((result.total / baseline) - 1) * 100 : null;
+            const signed = value => `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)}`;
+            const shock = assumptions ? `GDP ${signed(assumptions.gdp_shock_pp)} pp; unemployment ${signed(assumptions.unemp_shock_pp)} pp; rates ${signed(assumptions.rate_shock_pp)} pp; credit spreads +${Number(assumptions.credit_spread_bps).toFixed(0)} bps` : "Scenario assumptions unavailable";
+            return `<li><b>${escapeHtml(name.replaceAll("_", " "))}:</b> estimated EL ${amount(result.total)} (dataset units)${change == null ? "" : `; ${change >= 0 ? "+" : ""}${change.toFixed(1)}% vs baseline`}. ${escapeHtml(shock)}; ${amount(result.covered)} loans covered.</li>`;
+        });
+        byId("stress_html").innerHTML = `<ul>${detailRows.join("")}</ul><p class="text-muted">Illustrative portfolio sensitivity: sector-level multipliers and LGD stresses from the supplied scenario file are applied to filtered loan rows. This is not an OSFI-prescribed stress test or regulatory capital result.</p>`;
+    }
+
+    function updateRecommendations(rows, metrics) {
+        const sectors = groupRows(rows, "sector").filter(group => group.loan_count >= 30 && group.observed_default_rate != null);
+        const vintages = groupRows(rows, "origination_year").filter(group => group.loan_count >= 30 && group.observed_default_rate != null);
+        const highestSector = sectors.length ? sectors.reduce((a, b) => a.observed_default_rate >= b.observed_default_rate ? a : b) : null;
+        const highestVintage = vintages.length ? vintages.reduce((a, b) => a.observed_default_rate >= b.observed_default_rate ? a : b) : null;
+        const largestEl = [...rows].sort((a, b) => (number(b, "el") || 0) - (number(a, "el") || 0)).slice(0, 20).reduce((sum, row) => sum + (number(row, "el") || 0), 0);
+        const items = [
+            highestSector ? `Review sector-level drivers and data quality for ${escapeHtml(highestSector.value)} (${rate(highestSector.observed_default_rate)} observed default rate across ${amount(highestSector.loan_count)} loans).` : "Use a broader filter before comparing sector default rates; fewer than 30 observations are available per group.",
+            highestVintage ? `Compare vintage ${escapeHtml(highestVintage.value)} with neighboring vintages, accounting for different time on books and exposure counts.` : "Do not rank vintages until groups have sufficient observations and comparable follow-up time.",
+            `The 20 largest source expected-loss exposures sum to ${amount(largestEl)} (dataset units); review these as portfolio concentrations, not individual lending decisions.`,
+            `Validate PD performance against a defined observation horizon before treating the ${rate(metrics.average_annual_pd)} mean annual PD as a forecast.`
+        ];
+        byId("recs_html").innerHTML = `<ol>${items.map(item => `<li>${item}</li>`).join("")}</ol>`;
+    }
+
+    function updateAll() {
+        const rows = currentRows();
+        const metrics = summarize(rows);
+        updateOverview(rows, metrics);
+        updateNarrative(rows, metrics);
+        updateCharts(rows);
+        updateTables(rows);
+        updateStress(rows);
+        updateRecommendations(rows, metrics);
+        window.currentFilteredRows = rows;
+    }
+
+    function getAiSignals(rows) {
+        const metrics = summarize(rows);
+        return {
+            loan_count: metrics.loan_count,
+            observed_default_rate: metrics.observed_default_rate,
+            average_annual_pd: metrics.average_annual_pd,
+            average_rwa: rows.length ? metrics.total_rwa / rows.length : null,
+            total_ead: metrics.total_ead,
+            by_sector: metrics.by_sector.map(group => ({ sector: group.sector, loan_count: group.loan_count, observed_default_rate: group.observed_default_rate })),
+            by_vintage: metrics.by_vintage.map(group => ({ origination_year: group.origination_year, loan_count: group.loan_count, observed_default_rate: group.observed_default_rate }))
+        };
+    }
+
+    function analyzeDemoQuestion(question, sector, vintage, signals) {
+        const count = Number(signals.loan_count) || 0;
+        if (!count) return "There are no loans in the current filter. Adjust the filters and try again.";
+        const percent = value => value == null ? "unavailable" : `${(Number(value) * 100).toFixed(2)}%`;
+        const money = value => value == null ? "unavailable" : `$${Number(value).toLocaleString("en", { maximumFractionDigits: 2 })}`;
+        let scope = sector && sector !== "All" ? `the ${sector} sector` : "all sectors";
+        if (vintage && vintage !== "All") scope += `, vintage ${vintage}`;
+        const summary = `For ${scope}, the current filters include ${count.toLocaleString()} synthetic demo loans. Observed default rate: ${percent(signals.observed_default_rate)}; average annual PD: ${percent(signals.average_annual_pd)}; average RWA: ${money(signals.average_rwa)}; total EAD: ${money(signals.total_ead)}.`;
+        const q = question.toLowerCase();
+        const asksSector = q.includes("sector") || q.includes("industry");
+        const asksVintage = q.includes("vintage") || q.includes("origination") || q.includes("year");
+        if (asksSector || asksVintage) {
+            const groups = asksSector ? signals.by_sector : signals.by_vintage;
+            const field = asksSector ? "sector" : "origination_year";
+            const valid = (groups || []).filter(row => row.observed_default_rate != null);
+            if (valid.length) {
+                const high = valid.reduce((a, b) => a.observed_default_rate >= b.observed_default_rate ? a : b);
+                const low = valid.reduce((a, b) => a.observed_default_rate <= b.observed_default_rate ? a : b);
+                return `${summary}\n\nAcross ${valid.length} ${field} groups by observed default rate, ${high[field]} is highest at ${percent(high.observed_default_rate)} (${Number(high.loan_count).toLocaleString()} loans) and ${low[field]} is lowest at ${percent(low.observed_default_rate)} (${Number(low.loan_count).toLocaleString()} loans). These are synthetic descriptive examples and do not establish why outcomes differ.`;
+            }
+        }
+        if (["default", "delinquen", "bad loan", "failure"].some(term => q.includes(term))) {
+            const defaults = signals.observed_default_rate == null ? "an unavailable default count" : `approximately ${Math.round(count * signals.observed_default_rate).toLocaleString()} defaults`;
+            return `${summary}\n\nThe observed default rate corresponds to ${defaults} in this synthetic demonstration. It is not real portfolio evidence or a borrower-level prediction.`;
+        }
+        if (["pd", "probability of default", "predict", "future", "forecast"].some(term => q.includes(term))) {
+            return `${summary}\n\nAverage annual PD is the demo portfolio's synthetic modeled probability measure. Observed default rate is a separate historical-style label in the generated sample. Neither is real-world evidence or a forecast.`;
+        }
+        if (["ead", "exposure", "rwa", "risk-weighted"].some(term => q.includes(term))) {
+            return `${summary}\n\nEAD and RWA values here are generated solely to demonstrate the interface; they are not sourced from a real portfolio or suitable for regulatory reporting.`;
+        }
+        return `${summary}\n\nThis browser demo can answer supported questions about synthetic observed defaults, average annual PD, EAD, RWA, and descriptive sector or vintage comparisons. The local rule-based Analyzer does not use a language model.`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        let searchTimer;
+        byId("sectorFilter").addEventListener("change", updateAll);
+        byId("vintageFilter").addEventListener("change", updateAll);
+        byId("loanSearch").addEventListener("input", () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(updateAll, 250);
+        });
+        byId("exportBtn").addEventListener("click", () => {
+            const rows = (window.currentFilteredRows || []).slice().sort((a, b) => (number(b, "el") || 0) - (number(a, "el") || 0)).slice(0, 20);
+            const header = ["loan_id", "sector", "origination_year", "pd_annual", "lgd", "ead", "el"];
+            const csv = [header, ...rows.map(row => header.map(key => row[key]))].map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\r\n");
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+            link.download = "largest_expected_loss_exposures.csv";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+        document.addEventListener("click", event => {
+            const row = event.target.closest("#riskyLoansTable tbody tr[data-loan-id]");
+            if (!row) return;
+            const loan = window.fullData.find(item => String(item.loan_id) === row.dataset.loanId);
+            if (!loan) return;
+            byId("loan-details").innerHTML = `<pre>${escapeHtml(JSON.stringify({ loan_id: loan.loan_id, sector: loan.sector, origination_year: loan.origination_year, initial_rating: loan.initial_rating, pd_annual: loan.pd_annual, lgd: loan.lgd, ead: loan.ead, expected_loss_source: loan.el, rwa_source: loan.rwa, defaulted: loan.defaulted }, null, 2))}</pre>`;
+        });
+        byId("aiAnalyzeBtn").addEventListener("click", async () => {
+            const question = byId("aiQuestion").value.trim();
+            const answer = byId("aiAnswerBox");
+            if (!question) { answer.textContent = "Please enter a question."; return; }
+            const rows = currentRows();
+            answer.textContent = "Analyzing the filtered portfolio…";
+            byId("aiAnalyzeBtn").disabled = true;
+            try {
+                if (window.staticDemo) {
+                    answer.textContent = analyzeDemoQuestion(question, byId("sectorFilter").value || "All", byId("vintageFilter").value || "All", getAiSignals(rows));
+                    return;
+                }
+                const response = await fetch("/ai_analyze", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question, sector: byId("sectorFilter").value || "All", vintage: byId("vintageFilter").value || "All", signals: getAiSignals(rows) })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || `Request failed (${response.status}).`);
+                answer.textContent = result.answer || "No answer received.";
+            } catch (error) {
+                answer.textContent = `Analyst error: ${error.message}`;
+            } finally {
+                byId("aiAnalyzeBtn").disabled = false;
+            }
+        });
+        updateAll();
+    });
+})();
+</script></body>
+</html>

@@ -1,0 +1,25 @@
+# Local source data and generated dashboard (the generated page embeds loan rows)
+/data/*.csv
+/dashboard.html
+
+# Local environments, secrets, and Python artifacts
+/venv/
+/.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+
+# Local outputs and editor/OS files
+/outputs/*
+!/outputs/.gitkeep
+# Scratch fragments retained in the local working folder
+/# Stress testing HTML block.txt
+/dashboard_template_html.py code.txt
+/import plotly.graph_objects as go.txt
+/v0 app.py.txt
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
