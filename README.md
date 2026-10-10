@@ -10,7 +10,7 @@ A local, interactive portfolio dashboard for exploring credit-risk indicators ac
 - Review observed defaults, annual PD, LGD, EAD, expected loss, supplied RWA, ratings, and illustrative stress sensitivities.
 - Ask the Analyzer questions about the active filter. It runs locally with transparent fixed rules; no API key, model subscription, or external AI service is needed.
 - Rebuild the dashboard HTML from the source template and local data.
-- Browse the GitHub Pages demo after publishing. It uses generated synthetic rows, and its Analyzer runs in the browser.
+- Browse the [GitHub Pages demo](https://smitapinjan.github.io/credit-risk-analysis-dashboard_AI/) after enabling Pages and completing its first deployment. It uses generated synthetic rows, and its Analyzer runs in the browser.
 
 ## Quick start
 
