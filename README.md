@@ -1,6 +1,6 @@
-# Credit Risk Analysis Dashboard
+# Credit Risk Analysis Dashboard with AI analyzer
 
-A local, interactive portfolio dashboard for exploring credit-risk indicators across a loan portfolio. It includes filter-aware charts and narratives plus a free, local rule-based Analyzer that answers supported questions from the currently filtered aggregate metrics.
+An interactive portfolio dashboard for exploring credit-risk indicators across a loan portfolio. It includes filter-aware charts and narratives plus an AI (currently a local rule-based) Analyzer that answers supported questions from the currently filtered aggregate metrics.
 
 > **Portfolio prototype:** this project is for exploration and demonstration. It is not a lending decision tool, a validated risk model, an official OSFI/BCAR calculator, or evidence of regulatory compliance.
 
@@ -36,7 +36,7 @@ You can also generate `dashboard.html` on your own computer and transfer that si
 
 ## AI Analyzer behavior
 
-The Analyzer is a local deterministic rules engine, not an open-ended language model. It answers a limited set of questions grounded in aggregate values computed in the browser, including observed defaults, average annual PD, EAD, supplied RWA, and descriptive sector or vintage comparisons. It explains the scope and evidence in its answer and cannot infer unsupported causes or forecast future defaults. Browser requests send aggregate signals rather than raw loan rows.
+This Analyzer is demo purpose and is not connected to any AI models yet so it will be providing answers based on pre determined questions and not a live AI analysis and reasoning. The Analyzer is a local deterministic rules engine, not an open-ended language model. It answers a limited set of questions grounded in aggregate values computed in the browser, including observed defaults, average annual PD, EAD, supplied RWA, and descriptive sector or vintage comparisons. It explains the scope and evidence in its answer and cannot infer unsupported causes or forecast future defaults. Browser requests send aggregate signals rather than raw loan rows.
 
 The hosted Pages demo uses synthetic demonstration data and a browser-side version of the same bounded rule-based analysis. The full local dashboard uses the Flask API. Do not interpret synthetic demo values as findings about the Kaggle portfolio.
 
